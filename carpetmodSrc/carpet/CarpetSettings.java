@@ -766,11 +766,7 @@ public class CarpetSettings
             category = {OPTIMIZATIONS, EXPERIMENTAL})
     public static boolean optimizedInventories = false;
 
-    @Rule(desc = "Simplified hopper box shape when picking up items. This box contains the ring around the hopper's bowl.",
-            category = {OPTIMIZATIONS, FEATURE, EXPERIMENTAL})
-    public static boolean simplifiedHopperPickupShape = false;
-
-    @Rule(desc = "Reworked interaction between hoppers and entities. Entities look for hoppers instead of hoppers searching for entities.",
+    @Rule(desc = "Reworked interaction between hoppers and entities. Entities look for hoppers instead of hoppers searching for entities. Hoppers only check for entities when in lazy chunks.",
             category = {OPTIMIZATIONS, EXPERIMENTAL}, validator = "validateEntityHopperInteraction")
     public static boolean optimizedEntityHopperInteraction = false;
 
@@ -786,7 +782,7 @@ public class CarpetSettings
             category = {OPTIMIZATIONS, FEATURE, EXPERIMENTAL})
     public static boolean failedTransferNoComparatorUpdates = false;
 
-    @Rule(desc = "Checks the consistency of internal datastructures used in optimizedInventories on every access. Lots of computational overhead.",
+    @Rule(desc = "Checks the consistency of internal datastructures used in optimizedInventories on every access. Lots of computational overhead. Will spam console with debug output when a bug is detected.",
             category = EXPERIMENTAL)
     public static boolean debugOptimizedInventories = false;
     //
@@ -794,7 +790,8 @@ public class CarpetSettings
     /*
     @Rule(desc = "Don't disable optimized inventories when players interact with them.", category = {EXPERIMENTAL, "hopperoptimizations"})
     */ //This rule is causing problems when enabled. Inventories *should* panic when a player interacts with them until player handling code is added.
-    public static boolean playerHopperOptimizations = false;
+    //e.g. player shift clicking inside inventories instantly leads to inconsistencies. This can be fixed, probably very easily in jarmod.
+    public static boolean playerInventoryInteractionsOptimized = false; //has to be false until player inventory actions are fixed
 
     // ===== API ===== //
 

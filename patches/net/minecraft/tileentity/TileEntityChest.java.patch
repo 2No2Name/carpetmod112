@@ -137,7 +137,7 @@
          if (!p_174889_1_.func_175149_v())
          {
 +            //hopperOptimizations
-+            if (!CarpetSettings.playerHopperOptimizations && !p_174889_1_.func_175149_v())
++            if (!CarpetSettings.playerInventoryInteractionsOptimized && !p_174889_1_.func_175149_v())
 +                invalidateOptimizer();
 +            //
 +
@@ -186,7 +186,7 @@
 +
 +    @Override
 +    public boolean mayHaveOptimizer() {
-+        return CarpetSettings.playerHopperOptimizations || field_145987_o <= 0;
++        return CarpetSettings.playerInventoryInteractionsOptimized || field_145987_o <= 0;
 +    }
 +
 +    public int getInvalidCount() {

@@ -13,7 +13,15 @@
  import net.minecraft.entity.Entity;
  import net.minecraft.entity.player.EntityPlayer;
  import net.minecraft.inventory.Container;
-@@ -24,21 +30,24 @@
+@@ -11,7 +17,6 @@
+ import net.minecraft.nbt.NBTTagCompound;
+ import net.minecraft.util.DamageSource;
+ import net.minecraft.util.EnumHand;
+-import net.minecraft.util.NonNullList;
+ import net.minecraft.util.ResourceLocation;
+ import net.minecraft.util.datafix.DataFixer;
+ import net.minecraft.util.datafix.FixTypes;
+@@ -24,21 +29,24 @@
  import net.minecraft.world.storage.loot.LootContext;
  import net.minecraft.world.storage.loot.LootTable;
  
@@ -40,7 +48,7 @@
      }
  
      public void func_94095_a(DamageSource p_94095_1_)
-@@ -53,6 +62,13 @@
+@@ -53,6 +61,13 @@
  
      public boolean func_191420_l()
      {
@@ -54,12 +62,12 @@
          for (ItemStack itemstack : this.field_94113_a)
          {
              if (!itemstack.func_190926_b())
-@@ -121,10 +137,20 @@
+@@ -121,10 +136,20 @@
  
      public void func_174889_b(EntityPlayer p_174889_1_)
      {
 +        //hopperOptimizations
-+        if (!CarpetSettings.playerHopperOptimizations && !p_174889_1_.func_175149_v())
++        if (!CarpetSettings.playerInventoryInteractionsOptimized && !p_174889_1_.func_175149_v())
 +            invalidateOptimizer();
 +        viewerCount++;
      }
@@ -75,7 +83,7 @@
      }
  
      public boolean func_94041_b(int p_94041_1_, ItemStack p_94041_2_)
-@@ -187,7 +213,8 @@
+@@ -187,7 +212,8 @@
      protected void func_70037_a(NBTTagCompound p_70037_1_)
      {
          super.func_70037_a(p_70037_1_);
@@ -85,7 +93,7 @@
  
          if (p_70037_1_.func_150297_b("LootTable", 8))
          {
-@@ -297,4 +324,33 @@
+@@ -297,4 +323,33 @@
      {
          return this.field_184290_c;
      }
@@ -107,7 +115,7 @@
 +
 +    @Override
 +    public boolean mayHaveOptimizer() {
-+        return CarpetSettings.playerHopperOptimizations || viewerCount <= 0;
++        return CarpetSettings.playerInventoryInteractionsOptimized || viewerCount <= 0;
 +    }
 +
 +    @Override

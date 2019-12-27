@@ -77,7 +77,7 @@
          if (!p_174889_1_.func_175149_v())
          {
 +            //hopperOptimizations
-+            if (!CarpetSettings.playerHopperOptimizations)
++            if (!CarpetSettings.playerInventoryInteractionsOptimized)
 +                invalidateOptimizer();
 +
              if (this.field_190598_h < 0)
@@ -134,6 +134,6 @@
 +
 +    @Override
 +    public boolean mayHaveOptimizer() {
-+        return CarpetSettings.playerHopperOptimizations || field_190598_h <= 0;
++        return CarpetSettings.playerInventoryInteractionsOptimized || field_190598_h <= 0;
 +    }
  }

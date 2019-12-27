@@ -598,7 +598,7 @@
 +
 +    @Override
 +    public boolean mayHaveOptimizer() {
-+        return CarpetSettings.playerHopperOptimizations || viewerCount <= 0;
++        return CarpetSettings.playerInventoryInteractionsOptimized || viewerCount <= 0;
 +    }
 +
 +    @Override @Nullable
@@ -613,7 +613,7 @@
 +
 +    @Override
 +    public void func_174889_b(EntityPlayer playerEntity_1) {
-+        if (!CarpetSettings.playerHopperOptimizations && !playerEntity_1.func_175149_v()) {
++        if (!CarpetSettings.playerInventoryInteractionsOptimized && !playerEntity_1.func_175149_v()) {
 +            invalidateOptimizer();
 +            viewerCount++;
 +        }
@@ -746,7 +746,7 @@
 +    private boolean doAllNearbyEntitiesTick() {
 +        if (this.field_145850_b == null || this.field_145850_b.field_72995_K) throw new UnsupportedOperationException();
 +
-+        return this.field_145850_b.func_175648_a(this.func_174877_v(), 32, true);
++        return this.field_145850_b.func_175648_a(this.func_174877_v(), 34, true);
 +    }
 +
 +    public void notifyOfNearbyEntity(Entity entity) {

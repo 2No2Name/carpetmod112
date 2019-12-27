@@ -43,7 +43,7 @@
 +
 +    public void func_174889_b(EntityPlayer player) {
 +        super.func_174889_b(player);
-+        if (!CarpetSettings.playerHopperOptimizations && !player.func_175149_v()) {
++        if (!CarpetSettings.playerInventoryInteractionsOptimized && !player.func_175149_v()) {
 +            invalidateOptimizer();
 +            viewerCount++;
 +        }
@@ -62,6 +62,6 @@
 +
 +    @Override
 +    public boolean mayHaveOptimizer() {
-+        return CarpetSettings.playerHopperOptimizations || viewerCount <= 0;
++        return CarpetSettings.playerInventoryInteractionsOptimized || viewerCount <= 0;
 +    }
  }
