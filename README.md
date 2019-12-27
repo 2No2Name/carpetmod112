@@ -1,5 +1,34 @@
-# Carpet Mod
-Yes.
+# Carpet Mod with HopperOptimizations
+Forked from Carpet Mod for 1.12.2
+## Features
+
+Use /carpet to enable:
+
+### optimizedInventories
+
+Optimized Inventory accesses - bloomfilters, cached BlockEntities and improved item transfers. All mechanics should work the same as in vanilla, just with less lag.
+
+
+### optimizedItemStackEmptyCheck
+
+Speeds up checking whether an itemStack is empty by using cached information from vanilla. Mechanics like vanilla. 
+
+
+### optimizedEntityHopperInteraction
+
+Reworked interaction between hoppers and entities. Entities look for hoppers instead of hoppers searching for entities. This change should be barely detectable - the order in which items are picked up might be *slightly different from vanilla*. (For stationary items the order is mostly "oldest first", which is very similar to vanilla)
+
+
+### failedTransferNoComparatorUpdates
+
+Removes comparator updates when item transfers fail. This change is detectable with redstone and therefore clearly *non-vanilla behavior*.
+
+
+### debugOptimizedInventories
+
+Checks the consistency of internal datastructures used in optimizedInventories on every access. Lots of computational overhead. Will spam console with debug outputs when a bug is detected. 
+
+
 
 ## Getting Started
 ### Setting up your sources
