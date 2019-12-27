@@ -28,6 +28,14 @@ Removes comparator updates when item transfers fail. This change is detectable w
 
 Checks the consistency of internal datastructures used in optimizedInventories on every access. Lots of computational overhead. Will spam console with debug outputs when a bug is detected. 
 
+## Install
+
+git clone https://github.com/2No2Name/carpetmod112.git
+cd carpetmod112
+./gradlew setupCarpetmod
+./gradlew genPatches
+./gradlew createRelease
+Drop all files from build/distributions/Carpetmod_dev.zip into the 1.12.2 server jar to install carpet. Do not unpack the jar archive to do that. Use that jar as your server jar.
 
 
 ## Getting Started
