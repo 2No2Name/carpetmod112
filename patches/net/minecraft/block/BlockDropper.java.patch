@@ -1,0 +1,24 @@
+--- ../src-base/minecraft/net/minecraft/block/BlockDropper.java
++++ ../src-work/minecraft/net/minecraft/block/BlockDropper.java
+@@ -1,5 +1,8 @@
+ package net.minecraft.block;
+ 
++import carpet.CarpetSettings;
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
+ import net.minecraft.dispenser.BehaviorDefaultDispenseItem;
+ import net.minecraft.dispenser.IBehaviorDispenseItem;
+ import net.minecraft.inventory.IInventory;
+@@ -53,6 +56,12 @@
+                     if (iinventory == null)
+                     {
+                         itemstack1 = this.field_149947_P.func_82482_a(blocksourceimpl, itemstack);
++                        //hopperOptimizations
++                        if (CarpetSettings.optimizedInventories && tileentitydispenser instanceof OptimizedInventory) {
++                            InventoryOptimizer opt = ((OptimizedInventory) tileentitydispenser).getOptimizer();
++                            if (opt != null) opt.onItemStackCountChanged(i, -1);
++                        }
++                        //
+                     }
+                     else
+                     {

@@ -5,6 +5,8 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 
+import carpet.CarpetSettings;
+import hopperOptimizations.utils.EntityHopperInteraction;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
@@ -19,6 +21,10 @@ public class CollisionBoxesOptimizations
 {
     public static boolean optimizedGetCollisionBoxes(World world, @Nullable Entity entityIn, AxisAlignedBB aabb, boolean p_191504_3_, @Nullable List<AxisAlignedBB> outList)
     {
+        //hopperOptimizations
+        boolean notifyHoppers = CarpetSettings.optimizedEntityHopperInteraction && EntityHopperInteraction.rememberHoppers && entityIn.getEntityWorld() != null && !world.isRemote;
+        //
+
         final int startX = MathHelper.floor(aabb.minX) - 1;
         final int endX = MathHelper.ceil(aabb.maxX) + 1;
         final int startY = MathHelper.floor(aabb.minY) - 1;
@@ -88,6 +94,14 @@ public class CollisionBoxesOptimizations
                                             {
                                                 state = chunk.getBlockState(posMutable);
                                             }
+
+                                            //hopperOptimizations
+                                            if (notifyHoppers) {
+                                                EntityHopperInteraction.checked = true;
+                                                if (state.getBlock() == Blocks.HOPPER)
+                                                    EntityHopperInteraction.hopperLocationsToNotify.add(posMutable.toImmutable());
+                                            }
+                                            //
 
                                             state.addCollisionBoxToList(world, posMutable.toImmutable(), aabb, outList, entityIn, false);
 

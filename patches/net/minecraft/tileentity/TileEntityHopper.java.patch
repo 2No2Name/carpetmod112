@@ -1,44 +1,133 @@
 --- ../src-base/minecraft/net/minecraft/tileentity/TileEntityHopper.java
 +++ ../src-work/minecraft/net/minecraft/tileentity/TileEntityHopper.java
-@@ -2,6 +2,9 @@
+@@ -1,7 +1,15 @@
+ package net.minecraft.tileentity;
  
++import java.util.ArrayList;
  import java.util.List;
  import javax.annotation.Nullable;
 +
 +import carpet.carpetclient.CarpetClientChunkLogger;
 +import carpet.helpers.TileEntityCraftingTable;
++import hopperOptimizations.utils.EntityHopperInteraction;
++import hopperOptimizations.utils.InventoryListOptimized;
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
  import net.minecraft.block.Block;
  import net.minecraft.block.BlockChest;
  import net.minecraft.block.BlockHopper;
-@@ -28,12 +31,21 @@
+@@ -9,11 +17,7 @@
+ import net.minecraft.entity.item.EntityItem;
+ import net.minecraft.entity.player.EntityPlayer;
+ import net.minecraft.entity.player.InventoryPlayer;
+-import net.minecraft.inventory.Container;
+-import net.minecraft.inventory.ContainerHopper;
+-import net.minecraft.inventory.IInventory;
+-import net.minecraft.inventory.ISidedInventory;
+-import net.minecraft.inventory.ItemStackHelper;
++import net.minecraft.inventory.*;
+ import net.minecraft.item.ItemStack;
+ import net.minecraft.nbt.NBTTagCompound;
+ import net.minecraft.util.EntitySelectors;
+@@ -27,22 +31,71 @@
+ import net.minecraft.util.math.BlockPos;
  import net.minecraft.util.math.MathHelper;
  import net.minecraft.world.World;
++import carpet.CarpetSettings;
  
 -public class TileEntityHopper extends TileEntityLockableLoot implements IHopper, ITickable
 +import net.minecraft.item.EnumDyeColor;
 +import carpet.helpers.TileEntityOptimizer.ILazyTileEntity;
-+import carpet.CarpetSettings;
 +import carpet.helpers.HopperCounter;
 +import carpet.utils.WoolTool;
 +
-+public class TileEntityHopper extends TileEntityLockableLoot implements IHopper, ITickable, ILazyTileEntity
++public class TileEntityHopper extends TileEntityLockableLoot implements IHopper, hopperOptimizations.utils.IHopper, ITickable, ILazyTileEntity, OptimizedInventory
  {
-     private NonNullList<ItemStack> field_145900_a = NonNullList.<ItemStack>func_191197_a(5, ItemStack.field_190927_a);
+-    private NonNullList<ItemStack> field_145900_a = NonNullList.<ItemStack>func_191197_a(5, ItemStack.field_190927_a);
++    private NonNullList<ItemStack> field_145900_a = InventoryListOptimized.withSize(5, ItemStack.field_190927_a);
      private int field_145901_j = -1;
      private long field_190578_g;
  
++    // hopperOptimizations
++    //-----------------------------------------------
++    //Fields for OptimizedEntityHopperInteraction
++    //todo check whether ArrayLists are a good choice, otherwise find something faster, maybe a set class //also asymptotically bad contains call, use some set instead
++    private List<EntityItem> nearbyItems = new ArrayList<>(); //todo Order will be different from vanilla, either sort or decide to not fix
++    private List<Entity> nearbyInputInventoryEntities = new ArrayList<>();
++    private List<Entity> nearbyOutputInventoryEntities = new ArrayList<>();
++    private boolean entityCacheInvalid = true;
++    private boolean inputInventoryCacheInvalid = true;
++    private boolean outputInventoryCacheInvalid = true;
++    private int ruleUpdates = -1;
++    private List<AxisAlignedBB> boxes = null;
++    private long lastLazyChunkCheckTick = -1;
++    //-----------------------------------------------
++    private AxisAlignedBB inputBox = null;
++    //-----------------------------------------------
++    private AxisAlignedBB outputBox = null;
++    //-----------------------------------------------
++    //Fields for optimizedInventories
++    private int this_lastChangeCount_Insert;
++    private InventoryOptimizer previousInsert;
++    private IInventory prevInsertInventory;
++    private BlockPos prevInsertInventoryPos;
++    private int previousInsert_lastChangeCount;
++    private int previousInsert_lastInvalidCount;
++
++    private int this_lastChangeCount_Extract;
++    private InventoryOptimizer previousExtract;
++    private IInventory prevExtractInventory;
++    private BlockPos prevExtractInventoryPos;
++    private int previousExtract_lastChangeCount;
++    private int previousExtract_lastInvalidCount;
++
++    //-----------------------------------------------
++    private boolean previousExtract_causeMarkDirty;
++    private int viewerCount = 0;
++
++    //
++
++
 +        //CM
 +    public String cm_name() { return "Hopper"; }
 +
      public static void func_189683_a(DataFixer p_189683_0_)
      {
-         p_189683_0_.func_188258_a(FixTypes.BLOCK_ENTITY, new ItemStackDataLists(TileEntityHopper.class, new String[] {"Items"}));
-@@ -132,14 +144,44 @@
+-        p_189683_0_.func_188258_a(FixTypes.BLOCK_ENTITY, new ItemStackDataLists(TileEntityHopper.class, new String[] {"Items"}));
++        p_189683_0_.func_188258_a(FixTypes.BLOCK_ENTITY, new ItemStackDataLists(TileEntityHopper.class, "Items"));
+     }
+ 
+     public void func_145839_a(NBTTagCompound p_145839_1_)
+     {
+         super.func_145839_a(p_145839_1_);
+-        this.field_145900_a = NonNullList.<ItemStack>func_191197_a(this.func_70302_i_(), ItemStack.field_190927_a);
++        this.field_145900_a = InventoryListOptimized.withSize(this.func_70302_i_(), ItemStack.field_190927_a);
+ 
+         if (!this.func_184283_b(p_145839_1_))
+         {
+@@ -83,14 +136,14 @@
+ 
+     public ItemStack func_70298_a(int p_70298_1_, int p_70298_2_)
+     {
+-        this.func_184281_d((EntityPlayer)null);
++        this.func_184281_d(null);
+         ItemStack itemstack = ItemStackHelper.func_188382_a(this.func_190576_q(), p_70298_1_, p_70298_2_);
+         return itemstack;
+     }
+ 
+     public void func_70299_a(int p_70299_1_, ItemStack p_70299_2_)
+     {
+-        this.func_184281_d((EntityPlayer)null);
++        this.func_184281_d(null);
+         this.func_190576_q().set(p_70299_1_, p_70299_2_);
+ 
+         if (p_70299_2_.func_190916_E() > this.func_70297_j_())
+@@ -132,14 +185,44 @@
              {
                  boolean flag = false;
  
 -                if (!this.func_152104_k())
-+                if(!CarpetSettings.optimizedTileEntities)
++                if(!carpet.CarpetSettings.optimizedTileEntities)
                  {
 -                    flag = this.func_145883_k();
 -                }
@@ -83,14 +172,41 @@
                  }
  
                  if (flag)
-@@ -191,10 +233,35 @@
+@@ -160,6 +243,11 @@
+ 
+     private boolean func_152104_k()
+     {
++        if (CarpetSettings.optimizedInventories) {
++            InventoryOptimizer opt = this.getOptimizer();
++            if (opt != null) return opt.getFirstOccupiedSlot_extractable() == -1;
++        }
++
+         for (ItemStack itemstack : this.field_145900_a)
+         {
+             if (!itemstack.func_190926_b())
+@@ -178,6 +266,13 @@
+ 
+     private boolean func_152105_l()
+     {
++        // hopperOptimizations
++        if (CarpetSettings.optimizedInventories) {
++            InventoryOptimizer opt = this.getOptimizer();
++            if (opt != null) return opt.isFull_insertable(null);
++        }
++        //
++
+         for (ItemStack itemstack : this.field_145900_a)
+         {
+             if (itemstack.func_190926_b() || itemstack.func_190916_E() != itemstack.func_77976_d())
+@@ -191,18 +286,87 @@
  
      private boolean func_145883_k()
      {
+-        IInventory iinventory = this.func_145895_l();
 +        String prevReason = CarpetClientChunkLogger.reason;
 +        CarpetClientChunkLogger.reason = "Hopper loading";
 +        /* carpet mod */
-+        if (CarpetSettings.hopperCounters)
++        if (carpet.CarpetSettings.hopperCounters)
 +        {
 +            EnumDyeColor wool_color = this.get_wool_pointing();
 +            if (wool_color != null)
@@ -108,9 +224,11 @@
 +            }
 +        }
 +        /* end */
-+
-         IInventory iinventory = this.func_145895_l();
  
++        // hopperOptimizations
++        IInventory iinventory = getOutputInventoryFromCache();
++        //
++
 +        CarpetClientChunkLogger.reason = prevReason;
 +
          if (iinventory == null)
@@ -119,8 +237,47 @@
              return false;
          }
          else
-@@ -203,6 +270,10 @@
+         {
+             EnumFacing enumfacing = BlockHopper.func_176428_b(this.func_145832_p()).func_176734_d();
++            // hopperOptimizations
++            if (CarpetSettings.optimizedInventories) {
++                InventoryOptimizer toOpt, fromOpt;
++                if (iinventory instanceof OptimizedInventory && (toOpt = ((OptimizedInventory) iinventory).getOptimizer()) != null) {
++                    fromOpt = ((OptimizedInventory) this).getOptimizer();
++                    if (fromOpt != null && ((hopperOptimizations.utils.IHopper) this).tryShortcutFailedTransfer(fromOpt, iinventory, toOpt, false)) {
++                        return false;
++                    }
  
++                    if (toOpt.isFull_insertable(enumfacing)) {
++                        return false;
++                    }
++                    if (fromOpt != null) {
++                        int firstOccupiedSlot = fromOpt.getFirstOccupiedSlot_extractable();
++                        if (firstOccupiedSlot == -1) {
++                            return false;
++                        }
++
++                        //Try to push each item into the destination. As the hopper is usually smaller than the destination
++                        int invSize = this.func_70302_i_();
++                        for (int fromSlot = firstOccupiedSlot; fromSlot < invSize; fromSlot++) {
++                            ItemStack stack = this.func_70301_a(fromSlot);
++                            if (!stack.func_190926_b()){
++                                int toSlot = toOpt.findInsertSlot(stack, enumfacing);
++                                if (toSlot == -1) continue;
++
++                                boolean wasEmpty = toOpt.getFirstOccupiedSlot_extractable() == -1;
++                                transferOneItem_knownSuccessful(iinventory, toSlot, this, fromSlot);
++                                setReceiverCooldown(iinventory, wasEmpty);
++                                iinventory.func_70296_d();
++                                return true;
++                            }
++                        }
++                        return false;
++                    }
++                }
++            }
++            //
++
              if (this.func_174919_a(iinventory, enumfacing))
              {
 +                // Carpet-optimizedTileEntities: Push falls asleep if the container it would push into is full and
@@ -130,18 +287,37 @@
                  return false;
              }
              else
-@@ -297,7 +368,10 @@
+@@ -231,6 +395,13 @@
+ 
+     private boolean func_174919_a(IInventory p_174919_1_, EnumFacing p_174919_2_)
+     {
++        // hopperOptimizations
++        if (CarpetSettings.optimizedInventories && p_174919_1_ instanceof OptimizedInventory) {
++            InventoryOptimizer opt = ((OptimizedInventory) p_174919_1_).getOptimizer();
++            if (opt != null) return opt.isFull_insertable(p_174919_2_);
++        }
++        //
++
+         if (p_174919_1_ instanceof ISidedInventory)
+         {
+             ISidedInventory isidedinventory = (ISidedInventory)p_174919_1_;
+@@ -297,17 +468,102 @@
  
      public static boolean func_145891_a(IHopper p_145891_0_)
      {
+-        IInventory iinventory = func_145884_b(p_145891_0_);
 +        String prevReason = CarpetClientChunkLogger.reason;
 +        CarpetClientChunkLogger.reason = "Hopper self-loading";
-         IInventory iinventory = func_145884_b(p_145891_0_);
-+        CarpetClientChunkLogger.reason = prevReason;
  
++        // hopperOptimizations
++        IInventory iinventory = getInputInventoryFromCache(p_145891_0_);//getSourceInventory(hopper);
++        //
++
++        CarpetClientChunkLogger.reason = prevReason;
++
          if (iinventory != null)
          {
-@@ -305,6 +379,14 @@
+             EnumFacing enumfacing = EnumFacing.DOWN;
  
              if (func_174917_b(iinventory, enumfacing))
              {
@@ -156,7 +332,80 @@
                  return false;
              }
  
-@@ -333,6 +415,13 @@
++            //hopperOptimizations
++            if (CarpetSettings.optimizedInventories) {
++                InventoryOptimizer toOpt, fromOpt;
++                if (p_145891_0_ instanceof OptimizedInventory && (toOpt = ((OptimizedInventory) p_145891_0_).getOptimizer()) != null) {
++                    boolean isFull = toOpt.isFull_insertable(null);
++                    if (isFull) {
++                        return false;
++                    }
++                    if (iinventory instanceof OptimizedInventory && (fromOpt = ((OptimizedInventory) iinventory).getOptimizer()) != null) {
++                        if (p_145891_0_ instanceof hopperOptimizations.utils.IHopper && ((hopperOptimizations.utils.IHopper) p_145891_0_).tryShortcutFailedTransfer(toOpt, iinventory, fromOpt, true)) {
++                            return false;
++                        }
++
++                        int firstOccupiedSlot = fromOpt.getFirstOccupiedSlot_extractable();
++                        if (firstOccupiedSlot == -1) {
++                            return false;
++                        }
++
++                        if (toOpt.hasFreeSlots_insertable()) {
++                            //When the hopper has any empty slot, just get the first item from the source
++                            //fromSlot (= firstOccupiedSlot) already set
++
++                            //Find the slot in the hopper, which might be before the first empty slot due to stacking items
++                            ItemStack stack = iinventory.func_70301_a(firstOccupiedSlot);
++                            int toSlot = toOpt.findInsertSlot(stack, null);
++                            //if (toSlot == -1) throw new ThisNeverHappensException(); //empty slot always exists
++                            transferOneItem_knownSuccessful(p_145891_0_, toSlot, iinventory, firstOccupiedSlot);
++                            iinventory.func_70296_d();
++                            return true;
++                        } else { //!isFull
++                            //When the hopper has no empty slots, try to pull items instead of pushing, because the hopper
++                            //inventory is small, and therefore the for loop is shorter.
++
++                            //Assume that all hopper slots are allowed to be filled by the hopper pulling items
++                            //(Hopper is not SidedInventory, incompatible with mods that change this)
++                            //Make sure that the minimal possible fromSlot is chosen (vanilla behavior)
++                            int firstFromSlot = -1;
++                            int correspondingToSlot = -1;
++                            for (int toSlot = 0; toSlot < p_145891_0_.func_70302_i_(); toSlot++) {
++                                ItemStack stack = p_145891_0_.func_70301_a(toSlot);
++                                if (stack.func_77976_d() > stack.func_190916_E()) {
++                                    int fromSlot = fromOpt.indexOf_extractable_endIndex(stack, firstFromSlot);
++                                    if (fromSlot == -1 || (fromSlot >= firstFromSlot && firstFromSlot != -1)) continue;
++                                    //Lower fromSlot found, remember corresponding slot
++                                    firstFromSlot = fromSlot;
++                                    correspondingToSlot = toSlot;
++                                }
++                            }
++                            if (firstFromSlot != -1) {
++                                transferOneItem_knownSuccessful(p_145891_0_, correspondingToSlot, iinventory, firstFromSlot);
++                                iinventory.func_70296_d();
++                                return true;
++                            }
++                        }
++
++                        //If someone adds an Inventory Block that calls markDirty on setInvStack, but also implements canExtract behaviors this might be incorrect
++                        //Todo test whether barrels, composters, brewing stands, furnaces and shulkerboxes behave like vanilla here! Use comparator update detectors
++                        if (( !(iinventory instanceof ISidedInventory) && iinventory.func_70302_i_() > 0) || ((ISidedInventory) iinventory).func_180463_a(EnumFacing.DOWN).length > 0) {
++                            if (!CarpetSettings.failedTransferNoComparatorUpdates)
++                                hopperOptimizations.utils.IHopper.markDirtyLikeHopperWould(iinventory, fromOpt);
++                            ((hopperOptimizations.utils.IHopper) p_145891_0_).setMarkOtherDirty();
++                        }
++
++                        return false;
++                    }
++                    //else use vanilla (with optimized transfer) implementation
++                }
++            }
++            //
++
+             if (iinventory instanceof ISidedInventory)
+             {
+                 ISidedInventory isidedinventory = (ISidedInventory)iinventory;
+@@ -333,12 +589,20 @@
                      }
                  }
              }
@@ -170,19 +419,81 @@
          }
          else
          {
-@@ -352,6 +441,11 @@
+-            for (EntityItem entityitem : func_184292_a(p_145891_0_.func_145831_w(), p_145891_0_.func_96107_aA(), p_145891_0_.func_96109_aB(), p_145891_0_.func_96108_aC()))
++            // hopperOptimizations
++            for (EntityItem entityitem : getInputItemEntitiesFromCache(p_145891_0_))
+             {
+-                if (func_145898_a((IInventory)null, p_145891_0_, entityitem))
++                if (func_145898_a(null, p_145891_0_, entityitem))
+                 {
+                     return true;
+                 }
+@@ -352,10 +616,15 @@
      {
          ItemStack itemstack = p_174915_1_.func_70301_a(p_174915_2_);
  
 +        // Added method to fix auto crafting sucking out items to early CAPRET-XCOM
-+        if(CarpetSettings.autocrafter && TileEntityCraftingTable.checkIfCanCraft(p_174915_0_, p_174915_1_, itemstack)){
++        if(carpet.CarpetSettings.autocrafter && TileEntityCraftingTable.checkIfCanCraft(p_174915_0_, p_174915_1_, itemstack)){
 +            return false;
 +        }
 +
          if (!itemstack.func_190926_b() && func_174921_b(p_174915_1_, itemstack, p_174915_2_, p_174915_3_))
          {
              ItemStack itemstack1 = itemstack.func_77946_l();
-@@ -499,6 +593,14 @@
+-            ItemStack itemstack2 = func_174918_a(p_174915_1_, p_174915_0_, p_174915_1_.func_70298_a(p_174915_2_, 1), (EnumFacing)null);
++            ItemStack itemstack2 = func_174918_a(p_174915_1_, p_174915_0_, p_174915_1_.func_70298_a(p_174915_2_, 1), null);
+ 
+             if (itemstack2.func_190926_b())
+             {
+@@ -380,7 +649,7 @@
+         else
+         {
+             ItemStack itemstack = p_145898_2_.func_92059_d().func_77946_l();
+-            ItemStack itemstack1 = func_174918_a(p_145898_0_, p_145898_1_, itemstack, (EnumFacing)null);
++            ItemStack itemstack1 = func_174918_a(p_145898_0_, p_145898_1_, itemstack, null);
+ 
+             if (itemstack1.func_190926_b())
+             {
+@@ -398,6 +667,22 @@
+ 
+     public static ItemStack func_174918_a(IInventory p_174918_0_, IInventory p_174918_1_, ItemStack p_174918_2_, @Nullable EnumFacing p_174918_3_)
+     {
++        //hopperOptimizations
++        if (CarpetSettings.optimizedInventories && p_174918_1_ instanceof OptimizedInventory) {
++            InventoryOptimizer optimizer = ((OptimizedInventory) p_174918_1_).getOptimizer();
++            if (optimizer != null) {
++                while (!p_174918_2_.func_190926_b()) {
++                    int toSlot = optimizer.findInsertSlot(p_174918_2_, p_174918_3_);
++                    if (toSlot == -1) break;
++                    int count = p_174918_2_.func_190916_E();
++                    p_174918_2_ = func_174916_c(p_174918_0_, p_174918_1_, p_174918_2_, toSlot, p_174918_3_);
++                    if (p_174918_2_.func_190916_E() == count) break;
++                }
++                return p_174918_2_;
++            }
++        }
++        //
++
+         if (p_174918_1_ instanceof ISidedInventory && p_174918_3_ != null)
+         {
+             ISidedInventory isidedinventory = (ISidedInventory)p_174918_1_;
+@@ -459,6 +744,15 @@
+                 int j = Math.min(p_174916_2_.func_190916_E(), i);
+                 p_174916_2_.func_190918_g(j);
+                 itemstack.func_190917_f(j);
++
++                //hopperOptimizations
++                if (CarpetSettings.optimizedInventories) {
++                    InventoryOptimizer opt = p_174916_1_ instanceof OptimizedInventory ? ((OptimizedInventory) p_174916_1_).getOptimizer() : null;
++                    if (opt != null)
++                        opt.onItemStackCountChanged(p_174916_3_, j);
++                    }
++                //
++
+                 flag = j > 0;
+             }
+ 
+@@ -499,6 +793,14 @@
          return func_145893_b(this.func_145831_w(), this.func_96107_aA() + (double)enumfacing.func_82601_c(), this.func_96109_aB() + (double)enumfacing.func_96559_d(), this.func_96108_aC() + (double)enumfacing.func_82599_e());
      }
  
@@ -197,7 +508,25 @@
      public static IInventory func_145884_b(IHopper p_145884_0_)
      {
          return func_145893_b(p_145884_0_.func_145831_w(), p_145884_0_.func_96107_aA(), p_145884_0_.func_96109_aB() + 1.0D, p_145884_0_.func_96108_aC());
-@@ -546,7 +648,7 @@
+@@ -506,7 +808,7 @@
+ 
+     public static List<EntityItem> func_184292_a(World p_184292_0_, double p_184292_1_, double p_184292_3_, double p_184292_5_)
+     {
+-        return p_184292_0_.<EntityItem>func_175647_a(EntityItem.class, new AxisAlignedBB(p_184292_1_ - 0.5D, p_184292_3_, p_184292_5_ - 0.5D, p_184292_1_ + 0.5D, p_184292_3_ + 1.5D, p_184292_5_ + 0.5D), EntitySelectors.field_94557_a);
++        return p_184292_0_.func_175647_a(EntityItem.class, new AxisAlignedBB(p_184292_1_ - 0.5D, p_184292_3_, p_184292_5_ - 0.5D, p_184292_1_ + 0.5D, p_184292_3_ + 1.5D, p_184292_5_ + 0.5D), EntitySelectors.field_94557_a);
+     }
+ 
+     public static IInventory func_145893_b(World p_145893_0_, double p_145893_1_, double p_145893_3_, double p_145893_5_)
+@@ -535,7 +837,7 @@
+ 
+         if (iinventory == null)
+         {
+-            List<Entity> list = p_145893_0_.func_175674_a((Entity)null, new AxisAlignedBB(p_145893_1_ - 0.5D, p_145893_3_ - 0.5D, p_145893_5_ - 0.5D, p_145893_1_ + 0.5D, p_145893_3_ + 0.5D, p_145893_5_ + 0.5D), EntitySelectors.field_96566_b);
++            List<Entity> list = p_145893_0_.func_175674_a(null, new AxisAlignedBB(p_145893_1_ - 0.5D, p_145893_3_ - 0.5D, p_145893_5_ - 0.5D, p_145893_1_ + 0.5D, p_145893_3_ + 0.5D, p_145893_5_ + 0.5D), EntitySelectors.field_96566_b);
+ 
+             if (!list.isEmpty())
+             {
+@@ -546,7 +848,7 @@
          return iinventory;
      }
  
@@ -206,7 +535,7 @@
      {
          if (p_145894_0_.func_77973_b() != p_145894_1_.func_77973_b())
          {
-@@ -611,4 +713,15 @@
+@@ -611,4 +913,381 @@
      {
          return this.field_145900_a;
      }
@@ -221,4 +550,370 @@
 +        this.pullSleeping = false;
 +        this.pushSleeping = false;
 +    }
++    
++    // hopperOptimizations
++    private static void transferOneItem_knownSuccessful(IInventory to, int toSlot, IInventory from, int fromSlot) {
++        //assume stack sizes were checked, assume item types were already compared
++        //todo validate inputs if debug flag is set
++        //validation must also include that we are not transferring air etc.
++
++        ItemStack fromStack = from.func_70301_a(fromSlot);
++        ItemStack toStack = to.func_70301_a(toSlot);
++
++        boolean replacedToStack = false;
++        boolean replacedFromStack = false;
++
++        if (toStack.func_190926_b()) {
++            if (fromStack.func_190916_E() == 1) {
++                toStack = fromStack;
++                fromStack = ItemStack.field_190927_a;
++                from.func_70299_a(fromSlot, fromStack);
++                replacedFromStack = true;
++            } else {
++                toStack = fromStack.func_77946_l();
++                toStack.func_190920_e(1);
++            }
++            to.func_70299_a(toSlot, toStack);
++            replacedToStack = true;
++        } else
++            to.func_70301_a(toSlot).func_190917_f(1);
++
++        fromStack.func_190918_g(1);
++
++        if (!CarpetSettings.optimizedInventories) return;
++        //Notify optimizers of change, if neccessary
++        if (!replacedFromStack) {
++            InventoryOptimizer opt = from instanceof OptimizedInventory ? ((OptimizedInventory) from).getOptimizer() : null;
++            if (opt != null)
++                opt.onItemStackCountChanged(fromSlot, -1);
++        }
++
++        if (!replacedToStack) {
++            InventoryOptimizer opt = to instanceof OptimizedInventory ? ((OptimizedInventory) to).getOptimizer() : null;
++            if (opt != null)
++                opt.onItemStackCountChanged(toSlot, 1);
++        }
++    }
++
++
++    @Override
++    public boolean mayHaveOptimizer() {
++        return CarpetSettings.playerHopperOptimizations || viewerCount <= 0;
++    }
++
++    @Override @Nullable
++    public InventoryOptimizer getOptimizer() {
++        return mayHaveOptimizer() && field_145900_a instanceof InventoryListOptimized ? ((InventoryListOptimized) field_145900_a).getCreateOrRemoveOptimizer(this) : null;
++    }
++
++    @Override
++    public void invalidateOptimizer() {
++        if (field_145900_a instanceof InventoryListOptimized) ((InventoryListOptimized) field_145900_a).invalidateOptimizer();
++    }
++
++    @Override
++    public void func_174889_b(EntityPlayer playerEntity_1) {
++        if (!CarpetSettings.playerHopperOptimizations && !playerEntity_1.func_175149_v()) {
++            invalidateOptimizer();
++            viewerCount++;
++        }
++    }
++
++    public void func_174886_c(EntityPlayer playerEntity_1) {
++        if (!playerEntity_1.func_175149_v()) {
++            viewerCount--;
++            if (viewerCount < 0) {
++                System.out.println("Hopper viewer count inconsistency, might affect performance of optimizedInventories!");
++                viewerCount = 0;
++            }
++        }
++    }
++
++
++
++    public void func_145843_s() {
++        super.func_145843_s();
++        invalidateEntityHopperInteractionCache();
++        invalidateOptimizedInventoryCache();
++    }
++
++    private void invalidateOptimizedInventoryCache() {
++        previousInsert = null;
++        prevInsertInventory = null;
++        previousExtract = null;
++        prevExtractInventory = null;
++        this.invalidateOptimizer();
++    }
++    private boolean inventoryCacheValid(IInventory cachedInv, BlockPos cachedInvPos, int chestInvalidCount) {
++        if (cachedInv instanceof TileEntity) {
++            if (!((TileEntity) cachedInv).func_145837_r() &&
++                    ((TileEntity) cachedInv).func_174877_v().equals(cachedInvPos)) {
++                if (cachedInv instanceof TileEntityChest)
++                    return ((TileEntityChest) cachedInv).getInvalidCount() == chestInvalidCount;
++                return true;
++            }
++        }
++        if (cachedInv instanceof InventoryLargeChest && cachedInv instanceof OptimizedInventory) {
++            return ((OptimizedInventory) cachedInv).isStillValid();
++        }
++        return false; //never cache Entity Inventories, the entity might have moved away or a Blockentity might have been placed
++    }
++
++    private IInventory getCachedInventory(boolean extracting) {
++        if (!CarpetSettings.optimizedInventories) return null;
++        //cached inventory alive && position checks
++        if (extracting) {
++            if (inventoryCacheValid(prevExtractInventory, prevExtractInventoryPos, previousExtract_lastInvalidCount)) {
++                return prevExtractInventory;
++            }
++            previousExtract = null; //invalidate cache
++            prevExtractInventory = null;
++            return null;
++        } else {
++            if (inventoryCacheValid(prevInsertInventory, prevInsertInventoryPos, previousInsert_lastInvalidCount)) {
++                return prevInsertInventory;
++            }
++            previousInsert = null; //invalidate cache
++            prevInsertInventory = null;
++            return null;
++        }
++    }
++
++    public boolean tryShortcutFailedTransfer(InventoryOptimizer thisOpt, IInventory other, InventoryOptimizer otherOpt, boolean extracting) {
++        int thisChangeCount = thisOpt.getInventoryChangeCount();
++        int otherChangeCount = otherOpt.getInventoryChangeCount();
++        if (extracting) {
++            if (this_lastChangeCount_Extract != thisChangeCount || otherOpt != previousExtract || previousExtract_lastChangeCount != otherChangeCount) {
++                this_lastChangeCount_Extract = thisChangeCount;
++                previousExtract = otherOpt;
++                if (other instanceof TileEntity) {
++                    prevExtractInventory = other;
++                    prevExtractInventoryPos = ((TileEntity) other).func_174877_v().func_185334_h();
++                } else if (other instanceof InventoryLargeChest) {
++                    prevExtractInventory = other;
++                    prevExtractInventoryPos = null;
++                }
++                previousExtract_lastChangeCount = otherChangeCount;
++                previousExtract_lastInvalidCount = other instanceof TileEntityChest ? ((TileEntityChest) other).getInvalidCount() : 0;
++                previousExtract_causeMarkDirty = false;
++                return false;
++            }
++            if (previousExtract_causeMarkDirty && !CarpetSettings.failedTransferNoComparatorUpdates)
++                hopperOptimizations.utils.IHopper.markDirtyLikeHopperWould(other, otherOpt); //failed transfers sometimes cause comparator updates
++
++            return true;
++        } else {
++            if (this_lastChangeCount_Insert != thisChangeCount || otherOpt != previousInsert || previousInsert_lastChangeCount != otherChangeCount) {
++                this_lastChangeCount_Insert = thisChangeCount;
++                previousInsert = otherOpt;
++                if (other instanceof TileEntity) {
++                    prevInsertInventory = other;
++                    prevInsertInventoryPos = ((TileEntity) other).func_174877_v().func_185334_h();
++                } else if (other instanceof InventoryLargeChest) {
++                    prevInsertInventory = other;
++                    prevInsertInventoryPos = null;
++                }
++                previousInsert_lastChangeCount = otherChangeCount;
++                previousInsert_lastInvalidCount = other instanceof TileEntityChest ? ((TileEntityChest) other).getInvalidCount() : 0;
++
++                return false;
++            }
++            return true;
++        }
++    }
++
++    public void setMarkOtherDirty() {
++        this.previousExtract_causeMarkDirty = true;
++    }
++
++
++    private void invalidateEntityCacheIfNeccessary() {
++        if (EntityHopperInteraction.ruleUpdates != this.ruleUpdates || ruleUpdates == -1 || hasToInvalidateEntityCache()) {
++            invalidateEntityHopperInteractionCache();
++            this.ruleUpdates = EntityHopperInteraction.ruleUpdates;
++        }
++    }
++
++    private boolean hasToInvalidateEntityCache() {
++        long worldTime = this.field_145850_b.func_82737_E();
++        if (lastLazyChunkCheckTick == worldTime  && lastLazyChunkCheckTick != -1) return false;
++        lastLazyChunkCheckTick = worldTime;
++        return !doAllNearbyEntitiesTick();
++    }
++
++    //When the hopper is in lazy chunks, caching doesn't work when entities suddenly can appear from dispensers, destroyed blocks etc.
++    //Chunks should maybe cache whether they are ticking, this will cost some lag otherwise
++    private boolean doAllNearbyEntitiesTick() {
++        if (this.field_145850_b == null || this.field_145850_b.field_72995_K) throw new UnsupportedOperationException();
++
++        return this.field_145850_b.func_175648_a(this.func_174877_v(), 32, true);
++    }
++
++    public void notifyOfNearbyEntity(Entity entity) {
++        if (!entityCacheInvalid && entity instanceof EntityItem && !nearbyItems.contains(entity))
++            nearbyItems.add((EntityItem) entity);
++        if (!inputInventoryCacheInvalid && entity instanceof IInventory && entity.func_174813_aQ().func_72326_a(inputBox()) && !nearbyInputInventoryEntities.contains(entity))
++            nearbyInputInventoryEntities.add(entity);
++        if (!outputInventoryCacheInvalid && entity instanceof IInventory && entity.func_174813_aQ().func_72326_a(outputBox()) && !nearbyOutputInventoryEntities.contains(entity))
++            nearbyOutputInventoryEntities.add(entity);
++    }
++
++    private void invalidateEntityHopperInteractionCache() {
++        nearbyItems.clear();
++        nearbyInputInventoryEntities.clear();
++        nearbyOutputInventoryEntities.clear();
++
++        entityCacheInvalid = true;
++        inputInventoryCacheInvalid = true;
++        outputInventoryCacheInvalid = true;
++        ruleUpdates = -1;
++
++        boxes = null;
++        inputBox = null;
++        outputBox = null;
++    }
++
++    private IInventory getOutputInventoryFromCache() {
++        IInventory ret = getCachedInventory(false);
++        if (ret != null) return ret;
++
++        if (!CarpetSettings.optimizedEntityHopperInteraction) return this.func_145895_l();
++
++        World world = this.func_145831_w();
++        if (world == null) return null;
++
++        EnumFacing outputDirection = BlockHopper.func_176428_b(this.func_145832_p());
++        IInventory inventory = getBlockInventoryAt(world, this.func_174877_v().func_177972_a(outputDirection));
++        if (inventory == null) {
++            this.invalidateEntityCacheIfNeccessary();
++            if (this.outputInventoryCacheInvalid) {
++                BlockPos pos = this.field_174879_c.func_177972_a(outputDirection);
++                double x = pos.func_177958_n() + 0.5D;
++                double y = pos.func_177956_o() + 0.5D;
++                double z = pos.func_177952_p() + 0.5D;
++                this.nearbyOutputInventoryEntities = world.func_175674_a(null, new AxisAlignedBB(x - 0.5D, y - 0.5D, z - 0.5D, x + 0.5D, y + 0.5D, z + 0.5D), EntitySelectors.field_96566_b);
++                this.outputInventoryCacheInvalid = false;
++            }
++
++
++            List<Entity> list_1 = this.nearbyOutputInventoryEntities;
++            if (list_1.size() == 0)
++                return null;
++            list_1.removeIf((Entity inv) -> inv.field_70128_L || !inv.func_174813_aQ().func_72326_a(this.outputBox()));
++
++            if (!list_1.isEmpty()) {
++                return (IInventory) list_1.get(world.field_73012_v.nextInt(list_1.size()));
++            }
++            return null;
++        }
++        return inventory;
++    }
++
++    private static IInventory getInputInventoryFromCache(IHopper hopper) {
++        if (!(hopper instanceof TileEntityHopper))
++            return func_145884_b(hopper);
++
++        TileEntityHopper thisHopper = (TileEntityHopper)hopper;
++        IInventory ret = thisHopper.getCachedInventory(true);
++        if (ret != null) return ret;
++
++        if (!CarpetSettings.optimizedEntityHopperInteraction)
++            return func_145884_b(thisHopper);
++
++        World world = thisHopper.func_145831_w();
++        if (world == null) return null;
++
++        IInventory inventory = getBlockInventoryAt(world, thisHopper.func_174877_v().func_177984_a());
++        if (inventory == null) {
++            thisHopper.invalidateEntityCacheIfNeccessary();
++            if (thisHopper.inputInventoryCacheInvalid) {
++                double x = thisHopper.func_96107_aA();
++                double y = thisHopper.func_96109_aB() + 1.0D;
++                double z = thisHopper.func_96108_aC();
++                thisHopper.nearbyInputInventoryEntities = world.func_175674_a(null, new AxisAlignedBB(x - 0.5D, y - 0.5D, z - 0.5D, x + 0.5D, y + 0.5D, z + 0.5D), EntitySelectors.field_96566_b);
++                thisHopper.inputInventoryCacheInvalid = false;
++            }
++
++            List<Entity> list_1 = thisHopper.nearbyInputInventoryEntities;
++            if (list_1.size() == 0)
++                return null;
++            list_1.removeIf((Entity inv) -> inv.field_70128_L || !inv.func_174813_aQ().func_72326_a(thisHopper.inputBox()));
++
++            if (!list_1.isEmpty()) {
++                return (IInventory) list_1.get(world.field_73012_v.nextInt(list_1.size()));
++            }
++            return null;
++        }
++        return inventory;
++    }
++
++    private static List<EntityItem> getInputItemEntitiesFromCache(IHopper hopper) {
++        if (!CarpetSettings.optimizedEntityHopperInteraction || !(hopper instanceof TileEntityHopper)) {
++            return TileEntityHopper.func_184292_a(hopper.func_145831_w(), hopper.func_96107_aA(), hopper.func_96109_aB(), hopper.func_96108_aC());
++        }
++
++        ((TileEntityHopper) hopper).invalidateEntityCacheIfNeccessary();
++
++        if (((TileEntityHopper) hopper).entityCacheInvalid) {
++            ((TileEntityHopper) hopper).nearbyItems = TileEntityHopper.func_184292_a(hopper.func_145831_w(), hopper.func_96107_aA(), hopper.func_96109_aB(), hopper.func_96108_aC());
++            ((TileEntityHopper) hopper).entityCacheInvalid = false;
++            return ((TileEntityHopper) hopper).nearbyItems;
++        }
++
++        if (((TileEntityHopper) hopper).nearbyItems.size() == 0)
++            return ((TileEntityHopper) hopper).nearbyItems;
++
++        AxisAlignedBB pickupArea = new AxisAlignedBB(hopper.func_96107_aA() - 0.5D, hopper.func_96109_aB(), hopper.func_96108_aC() - 0.5D, hopper.func_96107_aA() + 0.5D, hopper.func_96109_aB() + 1.5D, hopper.func_96108_aC() + 0.5D);
++        ((TileEntityHopper) hopper).nearbyItems.removeIf((EntityItem entity) -> entity.field_70128_L || !pickupArea.func_72326_a(entity.func_174813_aQ()));
++        return ((TileEntityHopper) hopper).nearbyItems;
++    }
++
++    private AxisAlignedBB inputBox() {
++        if (inputBox == null) return inputBox = new AxisAlignedBB(this.field_174879_c.func_177984_a());
++        return inputBox;
++    }
++
++    private AxisAlignedBB outputBox() {
++        if (outputBox != null) return outputBox;
++        EnumFacing direction_1 = BlockHopper.func_176428_b(this.func_145832_p()).func_176734_d();
++        return outputBox = new AxisAlignedBB(this.field_174879_c.func_177972_a(direction_1));
++    }
++
++    private static IInventory getBlockInventoryAt(World worldIn, BlockPos blockPos_1) {
++        IInventory iinventory = null;
++        int i = MathHelper.func_76141_d(blockPos_1.func_177958_n());
++        int j = MathHelper.func_76141_d(blockPos_1.func_177956_o());
++        int k = MathHelper.func_76141_d(blockPos_1.func_177952_p());
++        BlockPos blockpos = new BlockPos(i, j, k);
++        Block block = worldIn.func_180495_p(blockpos).func_177230_c();
++
++        if (block.func_149716_u()) {
++            TileEntity tileentity = worldIn.func_175625_s(blockpos);
++
++            if (tileentity instanceof IInventory) {
++                iinventory = (IInventory) tileentity;
++
++                if (iinventory instanceof TileEntityChest && block instanceof BlockChest) {
++                    iinventory = ((BlockChest) block).func_189418_a(worldIn, blockpos, true);
++                }
++            }
++        }
++        return iinventory;
++    }
++
++    private void setReceiverCooldown(IInventory receiver, boolean wasEmpty) {
++        if (wasEmpty && receiver instanceof TileEntityHopper) {
++            TileEntityHopper hopperTileEntity_1 = (TileEntityHopper) receiver;
++            if (!hopperTileEntity_1.func_174914_o()) {
++                int int_4 = 0;
++                if (hopperTileEntity_1.field_190578_g >= this.field_190578_g) {
++                    int_4 = 1;
++                }
++                hopperTileEntity_1.func_145896_c(8 - int_4);
++            }
++        }
++
++        receiver.func_70296_d();
++    }
++    //
  }

@@ -1,6 +1,6 @@
 --- ../src-base/minecraft/net/minecraft/entity/item/EntityItem.java
 +++ ../src-work/minecraft/net/minecraft/entity/item/EntityItem.java
-@@ -1,10 +1,15 @@
+@@ -1,10 +1,16 @@
  package net.minecraft.entity.item;
  
  import javax.annotation.Nullable;
@@ -8,6 +8,7 @@
 +import carpet.CarpetSettings;
 +import carpet.logging.LoggerRegistry;
 +import carpet.logging.logHelpers.ItemLogHelper;
++import hopperOptimizations.utils.EntityHopperInteraction;
  import net.minecraft.block.material.Material;
  import net.minecraft.entity.Entity;
  import net.minecraft.entity.MoverType;
@@ -16,7 +17,7 @@
  import net.minecraft.init.Items;
  import net.minecraft.init.SoundEvents;
  import net.minecraft.item.Item;
-@@ -13,7 +18,6 @@
+@@ -13,7 +19,6 @@
  import net.minecraft.network.datasync.DataParameter;
  import net.minecraft.network.datasync.DataSerializers;
  import net.minecraft.network.datasync.EntityDataManager;
@@ -24,7 +25,7 @@
  import net.minecraft.util.DamageSource;
  import net.minecraft.util.datafix.DataFixer;
  import net.minecraft.util.datafix.FixTypes;
-@@ -25,6 +29,8 @@
+@@ -25,6 +30,8 @@
  import org.apache.logging.log4j.LogManager;
  import org.apache.logging.log4j.Logger;
  
@@ -33,7 +34,7 @@
  public class EntityItem extends Entity
  {
      private static final Logger field_145803_d = LogManager.getLogger();
-@@ -35,6 +41,9 @@
+@@ -35,6 +42,9 @@
      private String field_145801_f;
      private String field_145802_g;
      public float field_70290_d;
@@ -43,7 +44,7 @@
  
      public EntityItem(World p_i1709_1_, double p_i1709_2_, double p_i1709_4_, double p_i1709_6_)
      {
-@@ -47,6 +56,12 @@
+@@ -47,6 +57,12 @@
          this.field_70159_w = (double)((float)(Math.random() * 0.20000000298023224D - 0.10000000149011612D));
          this.field_70181_x = 0.20000000298023224D;
          this.field_70179_y = (double)((float)(Math.random() * 0.20000000298023224D - 0.10000000149011612D));
@@ -56,7 +57,36 @@
      }
  
      public EntityItem(World p_i1710_1_, double p_i1710_2_, double p_i1710_4_, double p_i1710_6_, ItemStack p_i1710_8_)
-@@ -165,8 +180,20 @@
+@@ -76,6 +92,11 @@
+ 
+     public void func_70071_h_()
+     {
++        //hopperOptimizations
++        if (!this.field_70170_p.field_72995_K && field_70148_d && CarpetSettings.optimizedEntityHopperInteraction)
++            EntityHopperInteraction.findAndNotifyHoppers(this);
++        //
++
+         if (this.func_92059_d().func_190926_b())
+         {
+             this.func_70106_y();
+@@ -109,8 +130,15 @@
+             {
+                 this.field_70145_X = this.func_145771_j(this.field_70165_t, (this.func_174813_aQ().field_72338_b + this.func_174813_aQ().field_72337_e) / 2.0D, this.field_70161_v);
+             }
+-
++            //hopperOptimizations
++            if (!this.field_70170_p.field_72995_K)
++                EntityHopperInteraction.rememberHoppers = CarpetSettings.optimizedEntityHopperInteraction;
++            //
+             this.func_70091_d(MoverType.SELF, this.field_70159_w, this.field_70181_x, this.field_70179_y);
++            //hopperOptimizations
++            if (!this.field_70170_p.field_72995_K && CarpetSettings.optimizedEntityHopperInteraction)
++                EntityHopperInteraction.notifyHoppers(this);
++            //
+             boolean flag = (int)this.field_70169_q != (int)this.field_70165_t || (int)this.field_70167_r != (int)this.field_70163_u || (int)this.field_70166_s != (int)this.field_70161_v;
+ 
+             if (flag || this.field_70173_aa % 25 == 0)
+@@ -165,8 +193,20 @@
                  }
              }
  
@@ -77,7 +107,7 @@
                  this.func_70106_y();
              }
          }
-@@ -221,8 +248,23 @@
+@@ -221,8 +261,23 @@
                      }
                      else if (itemstack1.func_190916_E() + itemstack.func_190916_E() > itemstack1.func_77976_d())
                      {
@@ -101,7 +131,7 @@
                      else
                      {
                          itemstack1.func_190917_f(itemstack.func_190916_E());
-@@ -256,6 +298,8 @@
+@@ -256,6 +311,8 @@
  
      public boolean func_70072_I()
      {
@@ -110,7 +140,7 @@
          if (this.field_70170_p.func_72918_a(this.func_174813_aQ(), Material.field_151586_h, this))
          {
              if (!this.field_70171_ac && !this.field_70148_d)
-@@ -269,7 +313,8 @@
+@@ -269,7 +326,8 @@
          {
              this.field_70171_ac = false;
          }
@@ -120,7 +150,7 @@
          return this.field_70171_ac;
      }
  
-@@ -295,6 +340,11 @@
+@@ -295,6 +353,11 @@
  
              if (this.field_70291_e <= 0)
              {
@@ -132,7 +162,7 @@
                  this.func_70106_y();
              }
  
-@@ -366,6 +416,9 @@
+@@ -366,6 +429,9 @@
              Item item = itemstack.func_77973_b();
              int i = itemstack.func_190916_E();
  
@@ -142,7 +172,7 @@
              if (this.field_145804_b == 0 && (this.field_145802_g == null || 6000 - this.field_70292_b <= 200 || this.field_145802_g.equals(p_70100_1_.func_70005_c_())) && p_70100_1_.field_71071_by.func_70441_a(itemstack))
              {
                  p_70100_1_.func_71001_a(this, i);
-@@ -376,8 +429,13 @@
+@@ -376,8 +442,13 @@
                      itemstack.func_190920_e(i);
                  }
  
@@ -157,7 +187,7 @@
          }
      }
  
-@@ -470,4 +528,9 @@
+@@ -470,4 +541,9 @@
          this.func_174871_r();
          this.field_70292_b = 5999;
      }

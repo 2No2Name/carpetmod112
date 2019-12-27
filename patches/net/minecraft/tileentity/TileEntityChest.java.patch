@@ -1,18 +1,43 @@
 --- ../src-base/minecraft/net/minecraft/tileentity/TileEntityChest.java
 +++ ../src-work/minecraft/net/minecraft/tileentity/TileEntityChest.java
-@@ -23,7 +23,10 @@
+@@ -1,6 +1,11 @@
+ package net.minecraft.tileentity;
+ 
+ import javax.annotation.Nullable;
++
++import carpet.CarpetSettings;
++import hopperOptimizations.utils.InventoryListOptimized;
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
+ import net.minecraft.block.Block;
+ import net.minecraft.block.BlockChest;
+ import net.minecraft.entity.player.EntityPlayer;
+@@ -23,9 +28,11 @@
  import net.minecraft.util.math.AxisAlignedBB;
  import net.minecraft.util.math.BlockPos;
  
 -public class TileEntityChest extends TileEntityLockableLoot implements ITickable
-+import carpet.CarpetSettings;
 +import carpet.helpers.TileEntityOptimizer.ILazyTileEntity;
 +
-+public class TileEntityChest extends TileEntityLockableLoot implements ITickable, ILazyTileEntity
++public class TileEntityChest extends TileEntityLockableLoot implements ITickable, ILazyTileEntity, OptimizedInventory
  {
-     private NonNullList<ItemStack> field_145985_p = NonNullList.<ItemStack>func_191197_a(27, ItemStack.field_190927_a);
+-    private NonNullList<ItemStack> field_145985_p = NonNullList.<ItemStack>func_191197_a(27, ItemStack.field_190927_a);
++    private NonNullList<ItemStack> field_145985_p = InventoryListOptimized.<ItemStack>withSize(27, ItemStack.field_190927_a);
      public boolean field_145984_a;
-@@ -46,6 +49,10 @@
+     public TileEntityChest field_145992_i;
+     public TileEntityChest field_145990_j;
+@@ -37,6 +44,10 @@
+     private int field_145983_q;
+     private BlockChest.Type field_145982_r;
+ 
++    // hopperOptimizations
++    private int invalidCount;
++    //
++
+     public TileEntityChest()
+     {
+     }
+@@ -46,6 +57,10 @@
          this.field_145982_r = p_i46677_1_;
      }
  
@@ -23,7 +48,40 @@
      public int func_70302_i_()
      {
          return 27;
-@@ -203,13 +210,17 @@
+@@ -53,6 +68,13 @@
+ 
+     public boolean func_191420_l()
+     {
++        //hopperOptimizations
++        if (CarpetSettings.optimizedInventories) {
++            InventoryOptimizer opt = this.getOptimizer();
++            if (opt != null) return opt.getFirstOccupiedSlot_extractable() == -1;
++        }
++        //
++
+         for (ItemStack itemstack : this.field_145985_p)
+         {
+             if (!itemstack.func_190926_b())
+@@ -77,7 +99,7 @@
+     public void func_145839_a(NBTTagCompound p_145839_1_)
+     {
+         super.func_145839_a(p_145839_1_);
+-        this.field_145985_p = NonNullList.<ItemStack>func_191197_a(this.func_70302_i_(), ItemStack.field_190927_a);
++        this.field_145985_p = InventoryListOptimized.<ItemStack>withSize(this.func_70302_i_(), ItemStack.field_190927_a);
+ 
+         if (!this.func_184283_b(p_145839_1_))
+         {
+@@ -167,6 +189,9 @@
+     {
+         if (!this.field_145984_a)
+         {
++            // hopperOptimizations
++            invalidCount++;
++            //
+             this.field_145984_a = true;
+             this.field_145991_k = this.func_174911_a(EnumFacing.WEST);
+             this.field_145990_j = this.func_174911_a(EnumFacing.EAST);
+@@ -203,13 +228,17 @@
          }
          else
          {
@@ -36,13 +94,13 @@
      public void func_73660_a()
      {
 +        // CARPET-optimizedTileEntities: Skip the update if sleeping
-+        if(CarpetSettings.optimizedTileEntities && this.isSleeping)
++        if(carpet.CarpetSettings.optimizedTileEntities && this.isSleeping)
 +            return;
 +
          this.func_145979_i();
          int i = this.field_174879_c.func_177958_n();
          int j = this.field_174879_c.func_177956_o();
-@@ -235,6 +246,10 @@
+@@ -235,6 +264,10 @@
              }
          }
  
@@ -53,7 +111,7 @@
          this.field_145986_n = this.field_145989_m;
          float f1 = 0.1F;
  
-@@ -258,6 +273,10 @@
+@@ -258,6 +291,10 @@
  
          if (this.field_145987_o == 0 && this.field_145989_m > 0.0F || this.field_145987_o > 0 && this.field_145989_m < 1.0F)
          {
@@ -64,7 +122,7 @@
              float f2 = this.field_145989_m;
  
              if (this.field_145987_o > 0)
-@@ -303,6 +322,9 @@
+@@ -303,6 +340,9 @@
  
      public boolean func_145842_c(int p_145842_1_, int p_145842_2_)
      {
@@ -74,7 +132,33 @@
          if (p_145842_1_ == 1)
          {
              this.field_145987_o = p_145842_2_;
-@@ -386,4 +408,14 @@
+@@ -318,6 +358,11 @@
+     {
+         if (!p_174889_1_.func_175149_v())
+         {
++            //hopperOptimizations
++            if (!CarpetSettings.playerHopperOptimizations && !p_174889_1_.func_175149_v())
++                invalidateOptimizer();
++            //
++
+             if (this.field_145987_o < 0)
+             {
+                 this.field_145987_o = 0;
+@@ -351,6 +396,13 @@
+ 
+     public void func_145843_s()
+     {
++        //hopperOptimizations
++        //Making sure that DoubleInventories don't act on invalid chest halfs using counter comparison.
++        //Chest halfs that have become invalid for some reason, will still be considered invalid that way.
++        this.invalidCount++;
++        if (invalidCount == 0) invalidCount = -1;
++        //
++
+         super.func_145843_s();
+         this.func_145836_u();
+         this.func_145979_i();
+@@ -386,4 +438,35 @@
      {
          return this.field_145985_p;
      }
@@ -88,4 +172,25 @@
 +    public void wakeUp(){
 +        this.isSleeping = false;
 +    }
++
++    // hopperOptimizations
++    @Override
++    public InventoryOptimizer getOptimizer() {
++        return mayHaveOptimizer() && field_145985_p instanceof InventoryListOptimized ? ((InventoryListOptimized) field_145985_p).getCreateOrRemoveOptimizer(this) : null;
++    }
++
++    @Override
++    public void invalidateOptimizer() {
++        if (field_145985_p instanceof InventoryListOptimized) ((InventoryListOptimized) field_145985_p).invalidateOptimizer();
++    }
++
++    @Override
++    public boolean mayHaveOptimizer() {
++        return CarpetSettings.playerHopperOptimizations || field_145987_o <= 0;
++    }
++
++    public int getInvalidCount() {
++        return invalidCount;
++    }
++    //
  }

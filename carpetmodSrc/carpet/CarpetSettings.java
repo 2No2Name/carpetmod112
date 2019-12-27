@@ -24,6 +24,8 @@ import carpet.helpers.ScoreboardDelta;
 import carpet.patches.BlockWool;
 import carpet.utils.TickingArea;
 import carpet.worldedit.WorldEditBridge;
+import hopperOptimizations.utils.EntityHopperInteraction;
+import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.util.math.AxisAlignedBB;
@@ -758,6 +760,41 @@ public class CarpetSettings
 
     @Rule(desc = "Allows bedrock to drop as bedrock item if broken, similar to 1.8 and lower versions.", category = EXPERIMENTAL)
     public static boolean bedrockDropsAsItem;
+
+    // hopperOptimizations
+    @Rule(desc = "Optimized Inventory accesses - bloomfilters, cached BlockEntities and improved item transfers",
+            category = {OPTIMIZATIONS, EXPERIMENTAL})
+    public static boolean optimizedInventories = false;
+
+    @Rule(desc = "Simplified hopper box shape when picking up items. This box contains the ring around the hopper's bowl.",
+            category = {OPTIMIZATIONS, FEATURE, EXPERIMENTAL})
+    public static boolean simplifiedHopperPickupShape = false;
+
+    @Rule(desc = "Reworked interaction between hoppers and entities. Entities look for hoppers instead of hoppers searching for entities.",
+            category = {OPTIMIZATIONS, EXPERIMENTAL}, validator = "validateEntityHopperInteraction")
+    public static boolean optimizedEntityHopperInteraction = false;
+
+    private static boolean validateEntityHopperInteraction(boolean value) {
+        return EntityHopperInteraction.validate(value);
+    }
+
+    @Rule(desc = "Speeds up checking whether an itemStack is empty by using cached information from vanilla.",
+            category = {OPTIMIZATIONS, EXPERIMENTAL})
+    public static boolean optimizedItemStackEmptyCheck = false;
+
+    @Rule(desc = "Doesn't do comparator updates when an item transfer fails unlike vanilla (when the transfer would have changed the signal strength)",
+            category = {OPTIMIZATIONS, FEATURE, EXPERIMENTAL})
+    public static boolean failedTransferNoComparatorUpdates = false;
+
+    @Rule(desc = "Checks the consistency of internal datastructures used in optimizedInventories on every access. Lots of computational overhead.",
+            category = EXPERIMENTAL)
+    public static boolean debugOptimizedInventories = false;
+    //
+
+    /*
+    @Rule(desc = "Don't disable optimized inventories when players interact with them.", category = {EXPERIMENTAL, "hopperoptimizations"})
+    */ //This rule is causing problems when enabled. Inventories *should* panic when a player interacts with them until player handling code is added.
+    public static boolean playerHopperOptimizations = false;
 
     // ===== API ===== //
 

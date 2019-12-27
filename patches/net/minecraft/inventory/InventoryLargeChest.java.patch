@@ -1,0 +1,131 @@
+--- ../src-base/minecraft/net/minecraft/inventory/InventoryLargeChest.java
++++ ../src-work/minecraft/net/minecraft/inventory/InventoryLargeChest.java
+@@ -1,15 +1,21 @@
+ package net.minecraft.inventory;
+ 
++import carpet.CarpetSettings;
++import javax.annotation.Nullable;
++import hopperOptimizations.utils.DoubleInventoryOptimizer;
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
+ import net.minecraft.entity.player.EntityPlayer;
+ import net.minecraft.entity.player.InventoryPlayer;
+ import net.minecraft.item.ItemStack;
++import net.minecraft.tileentity.TileEntityChest;
+ import net.minecraft.util.text.ITextComponent;
+ import net.minecraft.util.text.TextComponentString;
+ import net.minecraft.util.text.TextComponentTranslation;
+ import net.minecraft.world.ILockableContainer;
+ import net.minecraft.world.LockCode;
+ 
+-public class InventoryLargeChest implements ILockableContainer
++public class InventoryLargeChest implements ILockableContainer, OptimizedInventory
+ {
+     private final String field_70479_a;
+     private final ILockableContainer field_70477_b;
+@@ -40,6 +46,9 @@
+         {
+             p_i45905_2_.func_174892_a(p_i45905_3_.func_174891_i());
+         }
++
++        // hopperOptimizations
++        initValidityCheck(p_i45905_2_,p_i45905_3_);
+     }
+ 
+     public int func_70302_i_()
+@@ -184,4 +193,95 @@
+         this.field_70477_b.func_174888_l();
+         this.field_70478_c.func_174888_l();
+     }
++
++
++    // hopperOptimizations
++
++    //Invalidate this DoubleInventory when one half is invalidated.
++    //This wasn't necessary in vanilla, because the DoubleInventory object was recreated every time the doublechest was accessed.
++    private int firstInvalidCount;
++    private int secondInvalidCount;
++    private boolean invalid; //If true, this inventory will not be cached and will not be reused from a cache.
++
++    private DoubleInventoryOptimizer optimizer; //Make sure this is only used when both of its halfs have optimizers
++
++
++    private void initValidityCheck(IInventory inventory_1, IInventory inventory_2) {
++        if (!CarpetSettings.optimizedInventories) {
++            invalid = true;
++            return;
++        }
++        if (inventory_1 == inventory_2) {
++            invalid = true;
++            return;
++        }
++
++        if (!(inventory_1 instanceof TileEntityChest) || !(inventory_2 instanceof TileEntityChest)) {
++            invalid = true;
++            return;
++        }
++        firstInvalidCount = ((OptimizedInventory) inventory_1).getInvalidCount();
++        secondInvalidCount = ((OptimizedInventory) inventory_2).getInvalidCount();
++        invalid = (firstInvalidCount == -1 || secondInvalidCount == -1);
++    }
++
++    private DoubleInventoryOptimizer getCreateOrRemoveOptimizer() {
++        if (!CarpetSettings.optimizedInventories) { //Remove first's and second's optimizers
++            this.invalidateOptimizer();
++            return this.optimizer;
++        }
++        if (this.optimizer == null) {
++            if (((OptimizedInventory) field_70477_b).getOptimizer() == null || ((OptimizedInventory) field_70478_c).getOptimizer() == null) {
++                System.out.println("Bad initialisation of OptimizedInventory's stacklist! Skipping optmizations!");
++                return null;
++            }
++            this.optimizer = new DoubleInventoryOptimizer((OptimizedInventory) field_70477_b, (OptimizedInventory) field_70478_c);
++        } else if (this.optimizer.isInvalid()) {
++            this.invalidateOptimizer();
++        }
++        return this.optimizer;
++    }
++
++    @Override
++    @Nullable
++    public InventoryOptimizer getOptimizer() {
++        return mayHaveOptimizer() ? getCreateOrRemoveOptimizer() : null;
++    }
++
++    @Override
++    public void invalidateOptimizer() {
++        if (this.field_70477_b == null) {
++            System.out.println("Double Inventory with empty first half!");
++        } else if (this.field_70477_b instanceof OptimizedInventory) {
++            ((OptimizedInventory) this.field_70477_b).invalidateOptimizer();
++        }
++        if (this.field_70478_c == null) {
++            System.out.println("Double Inventory with empty second half!");
++        } else if (this.field_70478_c instanceof OptimizedInventory) {
++            ((OptimizedInventory) this.field_70478_c).invalidateOptimizer();
++        }
++        if (this.optimizer != null)
++            this.optimizer.setInvalid();
++        this.optimizer = null;
++    }
++
++    @Override
++    public boolean mayHaveOptimizer() {
++        return this.field_70477_b instanceof OptimizedInventory && ((OptimizedInventory) this.field_70477_b).mayHaveOptimizer()
++                && this.field_70478_c instanceof OptimizedInventory && ((OptimizedInventory) this.field_70478_c).mayHaveOptimizer();
++    }
++
++    //This doesn't get called on the cached object, because opening an inventory creates a new Double Inventory Object.
++    /*@Inject(method = "onInvOpen(Lnet/minecraft/entity/player/PlayerEntity;)V", at = @At(value = "HEAD"))
++    private void onInventoryOpened(PlayerEntity playerEntity_1, CallbackInfo ci) {
++        if (!playerEntity_1.isSpectator())
++            invalidateOptimizer();
++    }*/
++
++
++    //Allows caching the inventory safely
++    public boolean isStillValid() {
++        return !this.invalid && !(this.invalid = firstInvalidCount != ((OptimizedInventory) field_70477_b).getInvalidCount()) &&
++                !(this.invalid = secondInvalidCount != ((OptimizedInventory) field_70478_c).getInvalidCount());
++    }
+ }

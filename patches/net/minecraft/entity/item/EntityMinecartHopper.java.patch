@@ -1,0 +1,58 @@
+--- ../src-base/minecraft/net/minecraft/entity/item/EntityMinecartHopper.java
++++ ../src-work/minecraft/net/minecraft/entity/item/EntityMinecartHopper.java
+@@ -1,6 +1,9 @@
+ package net.minecraft.entity.item;
+ 
+ import java.util.List;
++
++import carpet.CarpetSettings;
++import hopperOptimizations.utils.InventoryOptimizer;
+ import net.minecraft.block.state.IBlockState;
+ import net.minecraft.entity.player.EntityPlayer;
+ import net.minecraft.entity.player.InventoryPlayer;
+@@ -19,7 +22,7 @@
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.world.World;
+ 
+-public class EntityMinecartHopper extends EntityMinecartContainer implements IHopper
++public class EntityMinecartHopper extends EntityMinecartContainer implements IHopper, hopperOptimizations.utils.IHopper
+ {
+     private boolean field_96113_a = true;
+     private int field_98044_b = -1;
+@@ -202,4 +205,36 @@
+     {
+         return new ContainerHopper(p_174876_1_, this, p_174876_2_);
+     }
++
++
++    // hopperOptimizations
++
++    //Duplicated code from HopperBlockEntityMixin, don't know where else to store those fields:
++    //Fields for optimizedInventories
++    private int this_lastChangeCount_Extract;
++    private InventoryOptimizer previousExtract;
++    private int previousExtract_lastChangeCount;
++    private boolean previousExtract_causeMarkDirty;
++    //private int previousExtract_lastInvalidCount;
++
++    public boolean tryShortcutFailedTransfer(InventoryOptimizer thisOpt, IInventory other, InventoryOptimizer otherOpt, boolean extracting) {
++        int thisChangeCount = thisOpt.getInventoryChangeCount();
++        int otherChangeCount = otherOpt.getInventoryChangeCount();
++        if (this_lastChangeCount_Extract != thisChangeCount || otherOpt != previousExtract || previousExtract_lastChangeCount != otherChangeCount) {
++            this_lastChangeCount_Extract = thisChangeCount;
++            previousExtract = otherOpt;
++            previousExtract_lastChangeCount = otherChangeCount;
++            //previousExtract_lastInvalidCount = other instanceof TileEntityChest ? ((TileEntityChest) other).getInvalidCount() : 0;
++            previousExtract_causeMarkDirty = false;
++            return false;
++        }
++        if (previousExtract_causeMarkDirty && !CarpetSettings.failedTransferNoComparatorUpdates)
++            hopperOptimizations.utils.IHopper.markDirtyLikeHopperWould(other, otherOpt); //failed transfers sometimes cause comparator updates
++
++        return true;
++    }
++
++    public void setMarkOtherDirty() {
++        this.previousExtract_causeMarkDirty = true;
++    }
+ }

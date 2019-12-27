@@ -1,6 +1,21 @@
 --- ../src-base/minecraft/net/minecraft/item/ItemStack.java
 +++ ../src-work/minecraft/net/minecraft/item/ItemStack.java
-@@ -41,6 +41,8 @@
+@@ -1,5 +1,6 @@
+ package net.minecraft.item;
+ 
++import carpet.CarpetSettings;
+ import com.google.common.collect.HashMultimap;
+ import com.google.common.collect.Multimap;
+ import java.text.DecimalFormat;
+@@ -20,6 +21,7 @@
+ import net.minecraft.entity.player.EntityPlayerMP;
+ import net.minecraft.init.Blocks;
+ import net.minecraft.init.Enchantments;
++import net.minecraft.init.Items;
+ import net.minecraft.inventory.EntityEquipmentSlot;
+ import net.minecraft.nbt.NBTBase;
+ import net.minecraft.nbt.NBTTagCompound;
+@@ -41,6 +43,8 @@
  import net.minecraft.util.text.translation.I18n;
  import net.minecraft.world.World;
  
@@ -9,7 +24,29 @@
  public final class ItemStack
  {
      public static final ItemStack field_190927_a = new ItemStack((Item)null);
-@@ -169,7 +171,8 @@
+@@ -98,7 +102,10 @@
+ 
+     private void func_190923_F()
+     {
+-        this.field_190928_g = this.func_190926_b();
++        if (CarpetSettings.optimizedItemStackEmptyCheck)
++            this.field_190928_g = (this.field_151002_e == null || this.field_151002_e == Item.func_150898_a(Blocks.field_150350_a) || this.field_77994_a <= 0 || this.field_77991_e < -32768 || this.field_77991_e > 65535);
++        else
++            this.field_190928_g = this.func_190926_b();
+     }
+ 
+     public ItemStack(NBTTagCompound p_i47263_1_)
+@@ -122,6 +129,9 @@
+ 
+     public boolean func_190926_b()
+     {
++        if (CarpetSettings.optimizedItemStackEmptyCheck)
++            return this.field_190928_g;
++
+         if (this == field_190927_a)
+         {
+             return true;
+@@ -169,7 +179,8 @@
  
          if (enumactionresult == EnumActionResult.SUCCESS)
          {
@@ -19,7 +56,7 @@
          }
  
          return enumactionresult;
-@@ -334,7 +337,8 @@
+@@ -334,7 +345,8 @@
  
          if (flag)
          {
@@ -29,7 +66,7 @@
          }
      }
  
-@@ -344,7 +348,8 @@
+@@ -344,7 +356,8 @@
  
          if (flag)
          {
@@ -39,7 +76,7 @@
          }
      }
  
-@@ -496,7 +501,8 @@
+@@ -496,7 +509,8 @@
  
      public void func_77980_a(World p_77980_1_, EntityPlayer p_77980_2_, int p_77980_3_)
      {
@@ -49,7 +86,7 @@
          this.func_77973_b().func_77622_d(this, p_77980_1_, p_77980_2_);
      }
  
-@@ -881,4 +887,10 @@
+@@ -881,4 +895,10 @@
      {
          this.func_190917_f(-p_190918_1_);
      }

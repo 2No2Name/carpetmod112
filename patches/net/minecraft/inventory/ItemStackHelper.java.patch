@@ -1,0 +1,31 @@
+--- ../src-base/minecraft/net/minecraft/inventory/ItemStackHelper.java
++++ ../src-work/minecraft/net/minecraft/inventory/ItemStackHelper.java
+@@ -1,6 +1,10 @@
+ package net.minecraft.inventory;
+ 
+ import java.util.List;
++
++import carpet.CarpetSettings;
++import hopperOptimizations.utils.InventoryListOptimized;
++import hopperOptimizations.utils.InventoryOptimizer;
+ import net.minecraft.item.ItemStack;
+ import net.minecraft.nbt.NBTTagCompound;
+ import net.minecraft.nbt.NBTTagList;
+@@ -10,7 +14,16 @@
+ {
+     public static ItemStack func_188382_a(List<ItemStack> p_188382_0_, int p_188382_1_, int p_188382_2_)
+     {
+-        return p_188382_1_ >= 0 && p_188382_1_ < p_188382_0_.size() && !((ItemStack)p_188382_0_.get(p_188382_1_)).func_190926_b() && p_188382_2_ > 0 ? ((ItemStack)p_188382_0_.get(p_188382_1_)).func_77979_a(p_188382_2_) : ItemStack.field_190927_a;
++        ItemStack retval = p_188382_1_ >= 0 && p_188382_1_ < p_188382_0_.size() && !((ItemStack)p_188382_0_.get(p_188382_1_)).func_190926_b() && p_188382_2_ > 0 ? ((ItemStack)p_188382_0_.get(p_188382_1_)).func_77979_a(p_188382_2_) : ItemStack.field_190927_a;
++        //hopperOptimizations
++        if (CarpetSettings.optimizedInventories && p_188382_0_ instanceof InventoryListOptimized) {
++            InventoryOptimizer opt = ((InventoryListOptimized<ItemStack>) p_188382_0_).getOrRemoveOptimizer();
++            if (opt != null) {
++                opt.onItemStackCountChanged(p_188382_1_, -p_188382_2_);
++            }
++        }
++        //
++        return retval;
+     }
+ 
+     public static ItemStack func_188383_a(List<ItemStack> p_188383_0_, int p_188383_1_)

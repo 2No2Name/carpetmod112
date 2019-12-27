@@ -1,6 +1,17 @@
 --- ../src-base/minecraft/net/minecraft/tileentity/TileEntityShulkerBox.java
 +++ ../src-work/minecraft/net/minecraft/tileentity/TileEntityShulkerBox.java
-@@ -28,7 +28,10 @@
+@@ -2,6 +2,10 @@
+ 
+ import java.util.List;
+ import javax.annotation.Nullable;
++
++import hopperOptimizations.utils.InventoryListOptimized;
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
+ import net.minecraft.block.Block;
+ import net.minecraft.block.BlockShulkerBox;
+ import net.minecraft.block.material.EnumPushReaction;
+@@ -28,7 +32,10 @@
  import net.minecraft.util.datafix.walkers.ItemStackDataLists;
  import net.minecraft.util.math.AxisAlignedBB;
  
@@ -8,11 +19,19 @@
 +import carpet.CarpetSettings;
 +import carpet.helpers.TileEntityOptimizer.ILazyTileEntity;
 +
-+public class TileEntityShulkerBox extends TileEntityLockableLoot implements ITickable, ISidedInventory, ILazyTileEntity
++public class TileEntityShulkerBox extends TileEntityLockableLoot implements ITickable, ISidedInventory, ILazyTileEntity, OptimizedInventory
  {
      private static final int[] field_190595_a = new int[27];
      private NonNullList<ItemStack> field_190596_f;
-@@ -54,6 +57,10 @@
+@@ -47,13 +54,17 @@
+ 
+     public TileEntityShulkerBox(@Nullable EnumDyeColor p_i47242_1_)
+     {
+-        this.field_190596_f = NonNullList.<ItemStack>func_191197_a(27, ItemStack.field_190927_a);
++        this.field_190596_f = InventoryListOptimized.<ItemStack>withSize(27, ItemStack.field_190927_a);
+         this.field_190599_i = TileEntityShulkerBox.AnimationStatus.CLOSED;
+         this.field_190602_l = p_i47242_1_;
+     }
  
      public void func_73660_a()
      {
@@ -23,7 +42,7 @@
          this.func_190583_o();
  
          if (this.field_190599_i == TileEntityShulkerBox.AnimationStatus.OPENING || this.field_190599_i == TileEntityShulkerBox.AnimationStatus.CLOSING)
-@@ -69,6 +76,9 @@
+@@ -69,6 +80,9 @@
          switch (this.field_190599_i)
          {
              case CLOSED:
@@ -33,7 +52,7 @@
                  this.field_190600_j = 0.0F;
                  break;
              case OPENING:
-@@ -93,6 +103,9 @@
+@@ -93,6 +107,9 @@
  
                  break;
              case OPENED:
@@ -43,7 +62,7 @@
                  this.field_190600_j = 1.0F;
          }
      }
-@@ -202,6 +215,9 @@
+@@ -202,6 +219,9 @@
  
      public boolean func_145842_c(int p_145842_1_, int p_145842_2_)
      {
@@ -53,7 +72,40 @@
          if (p_145842_1_ == 1)
          {
              this.field_190598_h = p_145842_2_;
-@@ -409,4 +425,14 @@
+@@ -228,6 +248,10 @@
+     {
+         if (!p_174889_1_.func_175149_v())
+         {
++            //hopperOptimizations
++            if (!CarpetSettings.playerHopperOptimizations)
++                invalidateOptimizer();
++
+             if (this.field_190598_h < 0)
+             {
+                 this.field_190598_h = 0;
+@@ -291,7 +315,7 @@
+ 
+     public void func_190586_e(NBTTagCompound p_190586_1_)
+     {
+-        this.field_190596_f = NonNullList.<ItemStack>func_191197_a(this.func_70302_i_(), ItemStack.field_190927_a);
++        this.field_190596_f = InventoryListOptimized.<ItemStack>withSize(this.func_70302_i_(), ItemStack.field_190927_a);
+ 
+         if (!this.func_184283_b(p_190586_1_) && p_190586_1_.func_150297_b("Items", 9))
+         {
+@@ -331,6 +355,12 @@
+ 
+     public boolean func_191420_l()
+     {
++        //hopperOptimizations
++        if (CarpetSettings.optimizedInventories && this instanceof OptimizedInventory) {
++            InventoryOptimizer opt = ((OptimizedInventory) this).getOptimizer();
++            if (opt != null) return opt.getFirstOccupiedSlot_extractable() == -1;
++        }
++        //
+         for (ItemStack itemstack : this.field_190596_f)
+         {
+             if (!itemstack.func_190926_b())
+@@ -409,4 +439,31 @@
          OPENED,
          CLOSING;
      }
@@ -66,5 +118,22 @@
 +    @Override
 +    public void wakeUp(){
 +    	this.isSleeping = false;
++    }
++
++    //hopperOptimizations
++
++    @Nullable
++    public InventoryOptimizer getOptimizer() {
++        return mayHaveOptimizer() && field_190596_f instanceof InventoryListOptimized ? ((InventoryListOptimized) field_190596_f).getCreateOrRemoveOptimizer(this) : null;
++    }
++
++    @Override
++    public void invalidateOptimizer() {
++        if (field_190596_f instanceof InventoryListOptimized) ((InventoryListOptimized) field_190596_f).invalidateOptimizer();
++    }
++
++    @Override
++    public boolean mayHaveOptimizer() {
++        return CarpetSettings.playerHopperOptimizations || field_190598_h <= 0;
 +    }
  }

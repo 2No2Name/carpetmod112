@@ -1,6 +1,16 @@
 --- ../src-base/minecraft/net/minecraft/inventory/Container.java
 +++ ../src-work/minecraft/net/minecraft/inventory/Container.java
-@@ -17,6 +17,8 @@
+@@ -5,6 +5,9 @@
+ import java.util.List;
+ import java.util.Set;
+ import javax.annotation.Nullable;
++
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
+ import net.minecraft.entity.player.EntityPlayer;
+ import net.minecraft.entity.player.EntityPlayerMP;
+ import net.minecraft.entity.player.InventoryPlayer;
+@@ -17,6 +20,8 @@
  import net.minecraft.util.math.MathHelper;
  import net.minecraft.world.World;
  
@@ -9,7 +19,7 @@
  public abstract class Container
  {
      public NonNullList<ItemStack> field_75153_a = NonNullList.<ItemStack>func_191196_a();
-@@ -281,7 +283,8 @@
+@@ -281,7 +286,8 @@
                              else
                              {
                                  int l2 = p_184996_2_ == 0 ? itemstack8.func_190916_E() : (itemstack8.func_190916_E() + 1) / 2;
@@ -19,7 +29,7 @@
  
                                  if (itemstack8.func_190926_b())
                                  {
-@@ -293,7 +296,7 @@
+@@ -293,7 +299,7 @@
                          }
                          else if (slot6.func_75214_a(itemstack11))
                          {
@@ -28,7 +38,7 @@
                              {
                                  int k2 = p_184996_2_ == 0 ? itemstack11.func_190916_E() : 1;
  
-@@ -414,9 +417,23 @@
+@@ -414,9 +420,23 @@
  
              if (slot2 != null && slot2.func_75216_d() && slot2.func_82869_a(p_184996_4_))
              {
@@ -55,7 +65,22 @@
              }
          }
          else if (p_184996_3_ == ClickType.PICKUP_ALL && p_184996_1_ >= 0)
-@@ -762,4 +779,10 @@
+@@ -719,6 +739,14 @@
+ 
+     public static int func_94526_b(@Nullable IInventory p_94526_0_)
+     {
++        //hopperOptimizations
++        if (CarpetSettings.optimizedInventories && p_94526_0_ instanceof OptimizedInventory) {
++            InventoryOptimizer opt = ((OptimizedInventory) p_94526_0_).getOptimizer();
++            if (opt != null)
++                return opt.getSignalStrength();
++        }
++        //
++
+         if (p_94526_0_ == null)
+         {
+             return 0;
+@@ -762,4 +790,10 @@
              entityplayermp.field_71135_a.func_147359_a(new SPacketSetSlot(this.field_75152_c, 0, itemstack));
          }
      }

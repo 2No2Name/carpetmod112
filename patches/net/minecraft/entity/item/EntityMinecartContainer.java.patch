@@ -1,0 +1,121 @@
+--- ../src-base/minecraft/net/minecraft/entity/item/EntityMinecartContainer.java
++++ ../src-work/minecraft/net/minecraft/entity/item/EntityMinecartContainer.java
+@@ -2,6 +2,12 @@
+ 
+ import java.util.Random;
+ import javax.annotation.Nullable;
++
++import carpet.CarpetSettings;
++import hopperOptimizations.utils.EntityHopperInteraction;
++import hopperOptimizations.utils.InventoryListOptimized;
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.player.EntityPlayer;
+ import net.minecraft.inventory.Container;
+@@ -24,21 +30,24 @@
+ import net.minecraft.world.storage.loot.LootContext;
+ import net.minecraft.world.storage.loot.LootTable;
+ 
+-public abstract class EntityMinecartContainer extends EntityMinecart implements ILockableContainer, ILootContainer
++public abstract class EntityMinecartContainer extends EntityMinecart implements ILockableContainer, ILootContainer, OptimizedInventory
+ {
+-    private NonNullList<ItemStack> field_94113_a = NonNullList.<ItemStack>func_191197_a(36, ItemStack.field_190927_a);
++    private InventoryListOptimized<ItemStack> field_94113_a = InventoryListOptimized.<ItemStack>withSize(36, ItemStack.field_190927_a);
+     private boolean field_94112_b = true;
+     private ResourceLocation field_184290_c;
+     private long field_184291_d;
+ 
++
+     public EntityMinecartContainer(World p_i1716_1_)
+     {
+         super(p_i1716_1_);
++        field_94113_a.setSize(this.func_70302_i_());
+     }
+ 
+     public EntityMinecartContainer(World p_i1717_1_, double p_i1717_2_, double p_i1717_4_, double p_i1717_6_)
+     {
+         super(p_i1717_1_, p_i1717_2_, p_i1717_4_, p_i1717_6_);
++        field_94113_a.setSize(this.func_70302_i_());
+     }
+ 
+     public void func_94095_a(DamageSource p_94095_1_)
+@@ -53,6 +62,13 @@
+ 
+     public boolean func_191420_l()
+     {
++        //hopperOptimizations
++        if (CarpetSettings.optimizedInventories) {
++            InventoryOptimizer opt = ((OptimizedInventory) this).getOptimizer();
++            if (opt != null) return opt.getFirstOccupiedSlot_extractable() == -1;
++        }
++        //
++
+         for (ItemStack itemstack : this.field_94113_a)
+         {
+             if (!itemstack.func_190926_b())
+@@ -121,10 +137,20 @@
+ 
+     public void func_174889_b(EntityPlayer p_174889_1_)
+     {
++        //hopperOptimizations
++        if (!CarpetSettings.playerHopperOptimizations && !p_174889_1_.func_175149_v())
++            invalidateOptimizer();
++        viewerCount++;
+     }
+ 
+     public void func_174886_c(EntityPlayer p_174886_1_)
+     {
++        //hopperOptimizations
++        viewerCount--;
++        if (viewerCount < 0) {
++            System.out.println("StorageMinecartEntity: (Inventory-)viewerCount inconsistency detected, might affect correctness of optimizedInventories!");
++            viewerCount = 0;
++        }
+     }
+ 
+     public boolean func_94041_b(int p_94041_1_, ItemStack p_94041_2_)
+@@ -187,7 +213,8 @@
+     protected void func_70037_a(NBTTagCompound p_70037_1_)
+     {
+         super.func_70037_a(p_70037_1_);
+-        this.field_94113_a = NonNullList.<ItemStack>func_191197_a(this.func_70302_i_(), ItemStack.field_190927_a);
++        this.field_94113_a = InventoryListOptimized.<ItemStack>withSize(this.func_70302_i_(), ItemStack.field_190927_a);
++        field_94113_a.setSize(this.func_70302_i_());
+ 
+         if (p_70037_1_.func_150297_b("LootTable", 8))
+         {
+@@ -297,4 +324,33 @@
+     {
+         return this.field_184290_c;
+     }
++
++    // hopperOptimizations
++    private boolean initialized;
++    private int viewerCount;
++
++
++    @Nullable
++    public InventoryOptimizer getOptimizer() {
++        return mayHaveOptimizer() && field_94113_a instanceof InventoryListOptimized ? ((InventoryListOptimized) field_94113_a).getCreateOrRemoveOptimizer(this) : null;
++    }
++
++    @Override
++    public void invalidateOptimizer() {
++        if (field_94113_a instanceof InventoryListOptimized) ((InventoryListOptimized) field_94113_a).invalidateOptimizer();
++    }
++
++    @Override
++    public boolean mayHaveOptimizer() {
++        return CarpetSettings.playerHopperOptimizations || viewerCount <= 0;
++    }
++
++    @Override
++    public void func_70071_h_() {
++        super.func_70071_h_();
++        if (!this.field_70170_p.field_72995_K && (this.field_70169_q != this.field_70165_t || this.field_70167_r != this.field_70163_u || this.field_70166_s != this.field_70161_v || !initialized)) {
++            EntityHopperInteraction.findAndNotifyHoppers(this);
++            initialized = true;
++        }
++    }
+ }

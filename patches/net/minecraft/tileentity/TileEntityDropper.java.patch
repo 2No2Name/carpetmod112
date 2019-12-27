@@ -1,0 +1,67 @@
+--- ../src-base/minecraft/net/minecraft/tileentity/TileEntityDropper.java
++++ ../src-work/minecraft/net/minecraft/tileentity/TileEntityDropper.java
+@@ -1,10 +1,18 @@
+ package net.minecraft.tileentity;
+ 
++import carpet.CarpetSettings;
++import hopperOptimizations.utils.InventoryListOptimized;
++import hopperOptimizations.utils.InventoryOptimizer;
++import hopperOptimizations.utils.OptimizedInventory;
++import net.minecraft.entity.player.EntityPlayer;
++import net.minecraft.item.ItemStack;
++import net.minecraft.util.NonNullList;
+ import net.minecraft.util.datafix.DataFixer;
+ import net.minecraft.util.datafix.FixTypes;
+ import net.minecraft.util.datafix.walkers.ItemStackDataLists;
++import javax.annotation.Nullable;
+ 
+-public class TileEntityDropper extends TileEntityDispenser
++public class TileEntityDropper extends TileEntityDispenser implements OptimizedInventory
+ {
+     public static void func_189679_b(DataFixer p_189679_0_)
+     {
+@@ -20,4 +28,44 @@
+     {
+         return "minecraft:dropper";
+     }
++
++
++    private int viewerCount = 0;
++
++    @Nullable
++    public InventoryOptimizer getOptimizer() {
++        NonNullList<ItemStack> inventory;
++        return mayHaveOptimizer() && (inventory = this.func_190576_q()) instanceof InventoryListOptimized ? ((InventoryListOptimized) inventory).getCreateOrRemoveOptimizer(this) : null;
++    }
++
++    @Override
++    public void invalidateOptimizer() {
++        NonNullList<ItemStack> inventory;
++        if ((inventory = this.func_190576_q()) instanceof InventoryListOptimized)
++            ((InventoryListOptimized) inventory).invalidateOptimizer();
++    }
++
++    public void func_174889_b(EntityPlayer player) {
++        super.func_174889_b(player);
++        if (!CarpetSettings.playerHopperOptimizations && !player.func_175149_v()) {
++            invalidateOptimizer();
++            viewerCount++;
++        }
++    }
++
++    public void func_174886_c(EntityPlayer player) {
++        super.func_174886_c(player);
++        if (!player.func_175149_v()) {
++            viewerCount--;
++            if (viewerCount < 0) {
++                System.out.println("Dropper viewer count inconsistency, might affect correctness of optimizedInventories!");
++                viewerCount = 0;
++            }
++        }
++    }
++
++    @Override
++    public boolean mayHaveOptimizer() {
++        return CarpetSettings.playerHopperOptimizations || viewerCount <= 0;
++    }
+ }
